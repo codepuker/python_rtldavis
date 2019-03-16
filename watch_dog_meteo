@@ -1,0 +1,98 @@
+#!/bin/bash
+
+MYSQLUSER=<username>
+MYSQLPASS=<password>
+MYSQLDATA=weather
+MYSQLTABL1=meteo_temp
+MYSQLTABL2=meteo_2019
+
+TIMESTAMP=`/bin/date +%s`
+if [ "$TIMESTAMP" -lt "2000" ]; then
+    echo "Timestamp basso"
+    sleep 30
+    exit
+fi
+
+DATETIME=`/bin/date +%Y-%m-%d_%H:%M:%S_%s`
+
+function killthemall {
+   echo "DEBUG - Funzione"
+   if [ ! -f /tmp/killed ] 
+    then
+     echo "DEBUG - then"
+     process_id_python=`ps xa | grep python | grep weather | awk '{print $1}'`
+     process_id_rtldavis=`pgrep rtldavis`
+     process_id_rtldavis_bash=`ps xa | grep rtldavis | grep sh | awk {'print $1'}`
+     echo "python: $process_id_python"
+     echo "python: $process_id_rtldavis"
+     echo "python: $process_id_rtldavis_bash"
+     /bin/kill -KILL $process_id_python
+     sleep 3 
+     /bin/kill -KILL $process_id_rtldavis
+     sleep 3
+     /bin/kill -KILL $process_id_python_bash
+     sleep 5
+     echo "DEBUG - starting again"
+      nohup python /usr/local/bin/weather_decoder.py &
+      echo "Restart Process " | mail -s "Meteo Watchdog dati" username@domain
+
+     sleep 3
+   else
+    echo "DEBUG  - else"
+    echo "Nothing to do! " | mail -s "Meteo Watchdog dati" username@domain
+   fi
+} 
+
+#select timestamp as "" from ais_stat_data_temp where id=(select max(id) from ais_stat_data_temp);
+#controllo 
+#
+tabella_1=$(mysql -u "$MYSQLUSER" "-p$MYSQLPASS" "$MYSQLDATA" << MYSQLQUERY1
+ select unix_timestamp(timestamp) as "" from $MYSQLTABL1 where id=(select max(id) from $MYSQLTABL1);
+MYSQLQUERY1
+)
+
+#controllo 
+tabella_2=$(mysql -u "$MYSQLUSER" "-p$MYSQLPASS" "$MYSQLDATA" << MYSQLQUERY2
+ select unix_timestamp(timestamp) as "" from $MYSQLTABL2 where id=(select max(id) from $MYSQLTABL2);
+MYSQLQUERY2
+)
+echo "DEBUG - tabella1"
+delta_tabella_1=$(expr $TIMESTAMP - $tabella_1)
+echo "DEBUG - differenza $delta_tabella_1"
+delta_tabella_1=$(expr $delta_tabella_1 / 60)
+echo "DEBUG - timestamp locale $TIMESTAMP"
+echo "DEBUG - timestamp dalla tabella $tabella_1"
+echo "DEBUG - delta 1 in minuti $delta_tabella_1"
+echo "--------------------------------------------------------"
+
+if [ $delta_tabella_1 -ge 5 ]; then
+   echo "No data in table $MYSQLTABL1"
+   killthemall
+   echo "No data in table $MYSQLTABL1 " | mail -s "Meteo Watchdog data" username@domain
+   touch /tmp/killed
+else
+   echo "$MYSQLTABL1: it's fine"
+fi
+
+echo "DEBUG - tabella2"
+delta_tabella_2=$(expr $TIMESTAMP - $tabella_2)
+echo "DEBUG - differenza $delta_tabella_2"
+delta_tabella_2=$(expr $delta_tabella_2 / 60)
+echo "DEBUG - timestamp locale $TIMESTAMP"
+echo "DEBUG - timestamp dalla tabella $tabella_2"
+echo "DEBUG - delta 2 in minuti $delta_tabella_2"
+echo "--------------------------------------------------------"
+
+
+if [ $delta_tabella_2 -ge 5 ]; then
+   echo "No data in table $MYSQLTABL2"
+   echo "No data in table $MYSQLTABL2 " | mail -s "Meteo Watchdog data" username@domain
+   touch /tmp/killed
+else
+   echo "$MYSQLTABL2: it's fine"
+fi
+
+rm -f /tmp/killed
+
+
+
