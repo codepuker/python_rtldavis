@@ -5,8 +5,9 @@ A python script which will call "rtldavis", decode the protocol, store data in a
 
 ## Long description
 I'm very interested in wether data. Some days ago I noticed a weather station on the rooftop of my workplace. Unfortunately:
-* it's very difficult to know who installed it and why
+* it's very difficult to know who installed it and why;
 * it's quite impossibile to have access to collected data
+
 Being an SDR lover I searched the web to see if someone had written a program to receive Davis Instruments data, collect them and display on a web page. I found [rtldavis project] (https://github.com/bemasher/rtldavis) which is written in "go lang" and will perform following operation:
 * bind to an rtl-sdr device, set the operating frequency, gain and sample rate;
 * collect data implement frequency hopping;
